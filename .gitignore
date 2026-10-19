@@ -221,3 +221,6 @@ __marimo__/
 
 *.md
 !README.md
+
+data/raw/
+data/processed/
