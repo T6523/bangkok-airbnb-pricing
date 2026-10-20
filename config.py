@@ -27,3 +27,5 @@ SPLIT_PATH = PROCESSED_DIR / "split.parquet"
 RESULTS_DIR = ROOT / "results"
 REF_LAT = 13.7456  # Siam BTS, city centre reference for dist_to_center_km
 REF_LON = 100.5341
+
+FIGURES_DIR = ROOT / "figures"
