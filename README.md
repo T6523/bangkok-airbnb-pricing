@@ -1,10 +1,8 @@
 # Bangkok Airbnb Pricing
 
-**[Live demo](https://t6523.github.io/bangkok-airbnb-pricing/)**
-
 Predicts nightly Airbnb prices in Bangkok from listing features: DuckDB SQL does the cleaning and feature engineering, then LightGBM, XGBoost and CatBoost (tuned with Optuna) and a three-model ensemble are evaluated against a linear baseline.
 
-**Stack:** Python 3.12 · DuckDB (SQL) · scikit-learn · LightGBM / XGBoost / CatBoost · Optuna · SHAP · Docker
+**[Live demo](https://t6523.github.io/bangkok-airbnb-pricing/)** · **Stack:** Python 3.12 · DuckDB (SQL) · scikit-learn · LightGBM / XGBoost / CatBoost · Optuna · SHAP · Docker
 
 <p align="center"><img src="assets/demo.gif" alt="The in-browser price estimator: changing a listing's bedrooms, guests, neighbourhood and pool updates the predicted price, then the chart and the heatmap of real listings" width="720"></p>
 
