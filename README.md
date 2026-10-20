@@ -1,10 +1,12 @@
 # Bangkok Airbnb Pricing
 
+**[Live demo](https://t6523.github.io/bangkok-airbnb-pricing/)**
+
 Predicts nightly Airbnb prices in Bangkok from listing features: DuckDB SQL does the cleaning and feature engineering, then LightGBM, XGBoost and CatBoost (tuned with Optuna) and a three-model ensemble are evaluated against a linear baseline.
 
 **Stack:** Python 3.12 · DuckDB (SQL) · scikit-learn · LightGBM / XGBoost / CatBoost · Optuna · SHAP · Docker
 
-<p align="center"><img src="figures/shap_beeswarm.png" alt="SHAP beeswarm of the tuned LightGBM: bedrooms, accommodates, minimum nights and pool are the largest drivers of predicted price" width="640"></p>
+<p align="center"><img src="assets/demo.gif" alt="The in-browser price estimator: changing a listing's bedrooms, guests, neighbourhood and pool updates the predicted price, then the chart and the heatmap of real listings" width="720"></p>
 
 ## Highlights
 
@@ -79,6 +81,8 @@ Grouped permutation importance on the test set (tuned LightGBM). Each row is the
 | host                                                  | 8        | 12                 |
 
 SHAP's top six features are `bedrooms`, `accommodates`, `minimum_nights`, `neighbourhood_cleansed`, `am_pool` and `dist_to_center_km`. `minimum_nights` ranks third because listings with long minimums (30 nights and up) are priced as monthly rentals, so the model pushes their nightly price down. Association only, not a lever for hosts.
+
+<p align="center"><img src="figures/shap_beeswarm.png" alt="SHAP beeswarm of the tuned LightGBM: bedrooms, accommodates, minimum nights and pool are the largest drivers of predicted price" width="640"></p>
 
 ## Where the model fails
 
