@@ -1,20 +1,18 @@
 from pathlib import Path
 from urllib.request import urlretrieve
 
-from config import LISTING_URL, NEIGHBORHOOD_URL, NEIGHBORHOOD_GEO_URL
+from config import LISTING_URL, NEIGHBORHOOD_URL, NEIGHBORHOOD_GEO_URL , LISTING_PATH, NEIGHBORHOOD_PATH, NEIGHBORHOOD_GEO_PATH
 
 RAW = Path('data/raw')
 FILES = {
-    'listings.csv.gz': LISTING_URL,
-    'neighbourhoods.csv': NEIGHBORHOOD_URL,
-    'neighbourhoods.geojson': NEIGHBORHOOD_GEO_URL,
+    LISTING_PATH : LISTING_URL,
+    NEIGHBORHOOD_PATH : NEIGHBORHOOD_URL,
+    NEIGHBORHOOD_GEO_PATH : NEIGHBORHOOD_GEO_URL,
 }
 
 if __name__ == '__main__':
-    RAW.mkdir(parents=True, exist_ok=True)
     
-    for name, url in FILES.items():
-        path = RAW / name
+    for path, url in FILES.items():
         if path.exists():
             print(f'skip {path} (exists)')
             continue
