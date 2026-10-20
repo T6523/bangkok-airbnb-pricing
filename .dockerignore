@@ -1,0 +1,12 @@
+.git
+.venv
+.env
+__pycache__
+catboost_info
+airbnb.duckdb
+data
+results
+figures
+README.old.md
+TODO_airbnb.md
+CLAUDE.md

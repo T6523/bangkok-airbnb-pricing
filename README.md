@@ -2,7 +2,7 @@
 
 Predicts nightly Airbnb prices in Bangkok from listing features: DuckDB SQL does the cleaning and feature engineering, then LightGBM, XGBoost and CatBoost (tuned with Optuna) and a three-model ensemble are evaluated against a linear baseline.
 
-**Stack:** Python 3.12 · DuckDB (SQL) · scikit-learn · LightGBM / XGBoost / CatBoost · Optuna · SHAP
+**Stack:** Python 3.12 · DuckDB (SQL) · scikit-learn · LightGBM / XGBoost / CatBoost · Optuna · SHAP · Docker
 
 <p align="center"><img src="figures/shap_beeswarm.png" alt="SHAP beeswarm of the tuned LightGBM: bedrooms, accommodates, minimum nights and pool are the largest drivers of predicted price" width="640"></p>
 
@@ -132,9 +132,19 @@ make all        # download data, build tables, split, tune, evaluate, bootstrap,
 
 `make all` writes `results/` and `figures/` (not committed, the tables above are the record). Tuning is capped at 20 minutes per model. Single stages: `make data`, `make sql`, `make split`, `make tune`, `make evaluate`, `make bootstrap`, `make explain`, `make errors`. Close any DuckDB shell on `airbnb.duckdb` first, it allows one writer.
 
+### Docker
+
+```bash
+docker build -t bangkok-airbnb-pricing .
+docker run --rm -v "$PWD/data:/app/data" -v "$PWD/results:/app/results" -v "$PWD/figures:/app/figures" bangkok-airbnb-pricing
+```
+
+Runs `make all` inside the container. The mounts keep the data, results and figures on your machine. The image is 2.5 GB. On a Linux host the mounted outputs are owned by root. For a single stage, add the command, for example `... bangkok-airbnb-pricing make PY=python split`.
+
 ## Project structure
 
 ```
+Dockerfile                image that runs the pipeline (make all)
 config.py                 paths and constants (seed 42, price scope, split sizes, reference point)
 scripts/download_data.py  fetch the three raw files from Inside Airbnb
 scripts/run_sql.py        run SQL files, filling ${placeholders} from config.py

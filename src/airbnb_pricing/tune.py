@@ -1,4 +1,5 @@
 import json
+import os
 import sys
 
 import numpy as np
@@ -11,7 +12,7 @@ from src.airbnb_pricing.models import FACTORIES
 from src.airbnb_pricing.split import cv_folds
 
 N_TRIALS = 40
-TIMEOUT_S = 1200  # hard cap per model, 20 minutes
+TIMEOUT_S = int(os.environ.get('TUNE_TIMEOUT_S', 1200))  # hard cap per model, 20 minutes by default
 
 
 def suggest(name: str, t) -> dict:
