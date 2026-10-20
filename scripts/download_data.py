@@ -1,9 +1,7 @@
-from pathlib import Path
 from urllib.request import urlretrieve
 
-from config import LISTING_URL, NEIGHBORHOOD_URL, NEIGHBORHOOD_GEO_URL , LISTING_PATH, NEIGHBORHOOD_PATH, NEIGHBORHOOD_GEO_PATH
+from config import LISTING_URL, NEIGHBORHOOD_URL, NEIGHBORHOOD_GEO_URL , LISTING_PATH, NEIGHBORHOOD_PATH, NEIGHBORHOOD_GEO_PATH, RAW_DIR
 
-RAW = Path('data/raw')
 FILES = {
     LISTING_PATH : LISTING_URL,
     NEIGHBORHOOD_PATH : NEIGHBORHOOD_URL,
@@ -11,7 +9,7 @@ FILES = {
 }
 
 if __name__ == '__main__':
-    
+    RAW_DIR.mkdir(parents=True, exist_ok=True)
     for path, url in FILES.items():
         if path.exists():
             print(f'skip {path} (exists)')
