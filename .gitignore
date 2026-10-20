@@ -232,3 +232,4 @@ data/processed/
 *.tfevents
 
 *.db
+!docs/model.json

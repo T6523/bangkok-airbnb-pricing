@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bangkok Airbnb Price Estimator</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-1: #fcfcfb; --surface-2: #f4f3f0; --hairline: #e3e2dd;
+    --text-primary: #0b0b0b; --text-secondary: #52514e; --text-muted: #6b6a66;
+    --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a; --neutral: #9a9893; --critical: #d03b3b;
+    --band: rgba(235, 104, 52, 0.16);
+    --heat-0: #cde2fb; --heat-1: #3987e5; --heat-2: #0d366b;  /* one-hue blue ramp, light to dark */
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --surface-1: #1a1a19; --surface-2: #232321; --hairline: #333330;
+      --text-primary: #f0efec; --text-secondary: #c3c2b7; --text-muted: #a3a29a;
+      --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --neutral: #8a8984;
+      --band: rgba(217, 89, 38, 0.2);
+      --heat-0: #0d366b; --heat-1: #2a78d6; --heat-2: #cde2fb;  /* flipped for dark: more listings = brighter */
+    }
+  }
+  :root[data-theme="light"] { color-scheme: light; }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --surface-1: #1a1a19; --surface-2: #232321; --hairline: #333330;
+    --text-primary: #f0efec; --text-secondary: #c3c2b7; --text-muted: #a3a29a;
+    --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --neutral: #8a8984;
+    --band: rgba(217, 89, 38, 0.2);
+    --heat-0: #0d366b; --heat-1: #2a78d6; --heat-2: #cde2fb;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--surface-1); color: var(--text-primary); font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 900px; margin: 0 auto; padding: 32px 16px 64px; }
+  .topbar { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px 16px; flex-wrap: wrap; }
+  .theme { display: inline-flex; border: 1px solid var(--hairline); border-radius: 999px; padding: 2px; background: var(--surface-2); }
+  .theme button { background: transparent; color: var(--text-secondary); border: 0; border-radius: 999px; padding: 4px 12px; font: inherit; font-size: .85rem; cursor: pointer; }
+  .theme button[aria-pressed="true"] { background: var(--series-1); color: #fff; }
+  h1 { font-size: 1.7rem; line-height: 1.2; margin: 0 0 8px; display: flex; align-items: center; gap: 10px; }
+  .logo { width: 1.35em; height: 1.35em; flex: none; }
+  h2 { font-size: 1.25rem; margin: 0 0 4px; }
+  p { margin: 0 0 12px; }
+  a { color: var(--series-1); }
+  .lead { color: var(--text-secondary); font-size: 1.05rem; }
+  .note { background: var(--surface-2); border: 1px solid var(--hairline); border-radius: 8px; padding: 12px 14px; color: var(--text-secondary); font-size: .95rem; margin: 16px 0; }
+  #status { display: inline-flex; align-items: center; gap: 10px; margin: 4px 0 0; padding: 8px 16px; border-radius: 999px; font-size: .95rem; line-height: 1.3; background: var(--surface-2); border: 1px solid var(--hairline); color: var(--text-secondary); }
+  #status b { color: var(--text-primary); }
+  #status .icon { width: 1.15rem; height: 1.15rem; flex: none; display: grid; place-items: center; border-radius: 50%; font-size: .8rem; font-weight: 700; color: #fff; line-height: 1; background: var(--neutral); }
+  #status[data-state="ready"] { border-color: var(--series-3); } #status[data-state="ready"] .icon { background: var(--series-3); }
+  #status[data-state="error"] { border-color: var(--critical); } #status[data-state="error"] .icon { background: var(--critical); }
+  section { border-top: 1px solid var(--hairline); padding: 28px 0 8px; margin-top: 28px; }
+  .sub { color: var(--text-secondary); margin-bottom: 16px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 12px 16px; align-items: end; margin-bottom: 14px; }
+  label { display: flex; flex-direction: column; font-size: .85rem; color: var(--text-secondary); gap: 4px; }
+  input, select { font: inherit; color: var(--text-primary); background: var(--surface-1); border: 1px solid var(--hairline); border-radius: 6px; padding: 6px 8px; width: 9.5rem; }
+  input:focus-visible, select:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid var(--series-1); outline-offset: 2px; }
+  .result { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin: 6px 0 14px; }
+  .stat { background: var(--surface-2); border: 1px solid var(--hairline); border-radius: 8px; padding: 10px 12px; }
+  .stat .k { font-size: .8rem; color: var(--text-secondary); }
+  .stat .v { font-size: 1.3rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .stat.hero .v { color: var(--series-2); }
+  .chart { position: relative; height: 340px; margin: 8px 0; }
+  svg { width: 100%; height: auto; display: block; }
+  svg text { fill: var(--text-secondary); font: 12px system-ui, sans-serif; }
+  svg text.strong { fill: var(--text-primary); font-weight: 600; }
+  .cell:hover { stroke: var(--text-primary); stroke-width: 1.5; }
+  .legend { display: flex; align-items: center; gap: 10px; justify-content: center; font-size: .85rem; color: var(--text-secondary); margin: 10px 0 4px; flex-wrap: wrap; }
+  .legend .bar { width: 200px; height: 10px; border-radius: 5px; background: linear-gradient(90deg, var(--heat-0), var(--heat-1), var(--heat-2)); }
+  .legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--series-2); margin-right: 4px; }
+  details { margin: 6px 0 12px; } summary { cursor: pointer; color: var(--text-secondary); font-size: .9rem; }
+  table { border-collapse: collapse; font-size: .85rem; margin-top: 8px; font-variant-numeric: tabular-nums; width: 100%; }
+  th, td { border-bottom: 1px solid var(--hairline); padding: 4px 12px; text-align: right; }
+  th:first-child, td:first-child { text-align: left; } th { color: var(--text-secondary); font-weight: 500; }
+  ul { padding-left: 20px; } li { margin: 4px 0; }
+  .facts { margin: 8px 0 0; }
+  .facts > div { display: grid; grid-template-columns: 9.5rem 1fr; gap: 4px 20px; padding: 12px 0; border-top: 1px solid var(--hairline); }
+  .facts > div:last-child { border-bottom: 1px solid var(--hairline); }
+  .facts dt { font-weight: 600; } .facts dd { margin: 0; color: var(--text-secondary); }
+  .facts b { color: var(--text-primary); font-weight: 600; }
+  footer { border-top: 1px solid var(--hairline); margin-top: 36px; padding-top: 16px; color: var(--text-muted); font-size: .9rem; }
+  .tip { position: fixed; z-index: 10; pointer-events: none; background: var(--surface-1); color: var(--text-primary); border: 1px solid var(--hairline); border-radius: 8px; padding: 8px 10px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18); font-size: .8rem; line-height: 1.35; max-width: 240px; }
+  .tip[hidden] { display: none; }
+  .tip .tv { font-size: 1rem; font-weight: 650; } .tip .tl, .tip .ts { color: var(--text-secondary); }
+  @media (max-width: 560px) { .facts > div { grid-template-columns: 1fr; } input, select { width: 100%; } label { flex: 1 1 8rem; } .chart { height: 300px; } }
+</style>
+</head>
+<body>
+<main>
+  <div class="topbar">
+    <div>
+      <h1><svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><path d="M3 15 16 4l13 11v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1Z" fill="#fcd34d"/><circle cx="23" cy="23" r="8.5" fill="#16a34a" stroke="var(--surface-1)" stroke-width="2"/><path d="M18.5 26.5 22 22.5l2.2 2L27.5 20" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Bangkok Airbnb price estimator</h1>
+      <p class="lead">A small, compressed version of the project's models, running entirely in your browser.</p>
+    </div>
+    <div class="theme" role="group" aria-label="Theme">
+      <button data-t="system" aria-pressed="true">System</button><button data-t="light" aria-pressed="false">Light</button><button data-t="dark" aria-pressed="false">Dark</button>
+    </div>
+  </div>
+  <div class="note"><b>What this is.</b> A LightGBM model with seven inputs, set beside the real listings it learned from. It is less accurate than the full ensemble described at the end of the page.</div>
+  <div id="status" data-state="loading"><span class="icon">…</span><span><b>Loading the model.</b> The charts appear when it is ready.</span></div>
+
+  <section>
+    <h2>1. What would this listing cost?</h2>
+    <p class="sub">Enter the listing's details. The neighbourhood is optional.</p>
+    <div class="controls">
+      <label>Bedrooms<input id="bedrooms" type="number" min="0" max="6" step="1" value="1"></label>
+      <label>Bathrooms<input id="bathrooms" type="number" min="0.5" max="6" step="0.5" value="1"></label>
+      <label>Guests<input id="accommodates" type="number" min="1" max="16" step="1" value="2"></label>
+      <label>Room type<select id="room"></select></label>
+      <label>Minimum nights<input id="minimum_nights" type="number" min="1" max="365" step="1" value="1"></label>
+      <label>Neighbourhood (optional)<select id="hood"></select></label>
+      <label>Pool<select id="pool"><option value="0">No</option><option value="1">Yes</option></select></label>
+    </div>
+    <div class="result" aria-live="polite">
+      <div class="stat hero"><div class="k">Predicted price per night</div><div class="v" id="price">…</div></div>
+      <div class="stat"><div class="k">80% range</div><div class="v" id="range">…</div></div>
+      <div class="stat"><div class="k">Real listings, same room type and bedrooms</div><div class="v" id="nreal">…</div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>2. How does the price change with one input?</h2>
+    <p class="sub">The model's prediction as a single input varies; every other input stays as entered.</p>
+    <div class="controls"><label>Vary<select id="vary"><option value="bedrooms">bedrooms</option><option value="bathrooms">bathrooms</option><option value="accommodates">guests</option><option value="minimum_nights">minimum nights</option></select></label></div>
+    <div class="chart"><canvas id="chart" role="img" aria-label="Predicted price per night as one input varies"></canvas></div>
+    <details><summary>Table view</summary><table id="chart-table"></table></details>
+  </section>
+
+  <section>
+    <h2>3. How does the model compare with real listings?</h2>
+    <p class="sub" id="compare-sub"></p>
+    <div class="controls"><label>Rows<select id="rowdim"></select></label></div>
+    <svg id="compare" role="img" aria-label="Heatmap of real listing prices by row input, with the model prediction marked on your row"></svg>
+    <div class="legend"><span>fewer listings</span><span class="bar"></span><span>more listings</span><span style="margin-left:14px"><span class="dot"></span>model prediction and 80% range</span></div>
+    <p class="sub" id="compare-note" style="text-align:center"></p>
+    <details><summary>Table view</summary><table id="compare-table"></table></details>
+  </section>
+
+  <section>
+    <h2>About this model</h2>
+    <p>It is a LightGBM regressor with <span id="m-trees"></span> trees of <span id="m-leaves"></span> leaves each, exported as a <span id="m-size"></span> JSON file. It sees only the seven inputs above so it is a simpler model than the full ensemble in the repository.</p>
+    <p class="sub">Measured on the held-out test set (<span id="m-ntest"></span> listings).</p>
+    <div class="result">
+      <div class="stat"><div class="k">Mean absolute error</div><div class="v" id="m-mae"></div></div>
+      <div class="stat"><div class="k">Mean absolute error, neighbourhood left blank</div><div class="v" id="m-mae-nh"></div></div>
+      <div class="stat"><div class="k">Predictions within 20% of the true price</div><div class="v" id="m-w20"></div></div>
+      <div class="stat"><div class="k">80% range contains the true price</div><div class="v" id="m-cov"></div></div>
+    </div>
+    <p class="sub">For comparison, on the same test set:</p>
+    <div class="result">
+      <div class="stat"><div class="k">Linear regression on all 68 features</div><div class="v">804 THB</div></div>
+      <div class="stat"><div class="k">Full ensemble</div><div class="v">666 THB</div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>About the project</h2>
+    <p>Predicts nightly Airbnb prices in Bangkok. DuckDB SQL does the cleaning and feature engineering; LightGBM, XGBoost and CatBoost (tuned with Optuna) and a three-model ensemble are compared against a linear baseline.</p>
+    <dl class="facts">
+      <div><dt>Data</dt><dd>Inside Airbnb Bangkok, scraped 2026-09-22 (CC BY 4.0). 30,922 raw listings, 28,092 modelled, asking prices from 361 to 18,541 THB.</dd></div>
+      <div><dt>Grouped split</dt><dd>Train and test are split by host, so no host appears on both sides.</dd></div>
+      <div><dt>Best model</dt><dd>Ensemble of the three tuned boosters, test MAE <b>666 THB</b> (95% CI 599–737), against <b>804 THB</b> (731–883) for linear regression, on 1,426 held-out hosts. Paired bootstrap difference: 138 THB (CI 53–203).</dd></div>
+      <div><dt>What drives price</dt><dd>Listing size first (shuffling it adds 592 THB of MAE), then location (172), stay rules (141) and amenities (90).</dd></div>
+      <div><dt>This page</dt><dd>The demo is a smaller 7-input LightGBM, less accurate than the ensemble. Its 80% range comes from out-of-fold errors on the training hosts.</dd></div>
+      <div><dt>Limits</dt><dd>One snapshot, asking prices rather than paid prices, and importance describes the model, not causes.</dd></div>
+    </dl>
+  </section>
+  <footer><a href="https://github.com/T6523/bangkok-airbnb-pricing">Code, results and the full README on GitHub</a></footer>
+</main>
+
+<div class="tip" id="tip" hidden></div>
+<script src="predict.js"></script>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const baht = (v) => '฿' + Math.round(v).toLocaleString('en-US');
+  const short = (v) => v >= 1000 ? '฿' + (v / 1000).toFixed(v >= 10000 ? 0 : 1) + 'k' : '฿' + Math.round(v);
+  const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  let model = null, lineChart = null;
+
+  // theme: System / Light / Dark
+  function setTheme(t) {
+    if (t === 'system') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', t);
+    document.querySelectorAll('.theme button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.t === t)));
+    try { localStorage.setItem('theme', t); } catch (e) {}
+    if (model) render();
+  }
+  document.querySelectorAll('.theme button').forEach((b) => b.addEventListener('click', () => setTheme(b.dataset.t)));
+  try { const t = localStorage.getItem('theme'); if (t) setTheme(t); } catch (e) {}
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => model && render());
+
+  const clamp = (el, lo, hi, dflt, step) => { let v = parseFloat(el.value); if (Number.isNaN(v)) v = dflt; return Math.min(hi, Math.max(lo, Math.round(v / step) * step)); };
+  function read() {
+    const h = $('hood').value;
+    return { bedrooms: clamp($('bedrooms'), 0, 6, 1, 1), bathrooms: clamp($('bathrooms'), 0.5, 6, 1, 0.5), accommodates: clamp($('accommodates'), 1, 16, 2, 1),
+             minimum_nights: clamp($('minimum_nights'), 1, 365, 1, 1), room_type: Number($('room').value), neighbourhood: h === '' ? NaN : Number(h), pool: Number($('pool').value) };
+  }
+  const price = (s) => predictPrice(model, model.features.map((f) => s[f]));
+  const rangeFor = (s) => (Number.isNaN(s.neighbourhood) ? model.range_no_hood : model.range);  // wider when the neighbourhood is unknown
+
+  // ---- tooltip for the heatmap: values lead, labels follow; text is set with textContent ----
+  const tip = $('tip');
+  function showTip(x, y, d) {
+    tip.replaceChildren();
+    for (const [cls, text] of [['tv', d.tv], ['tl', d.tl], ['ts', d.ts]]) if (text) { const e = document.createElement('div'); e.className = cls; e.textContent = text; tip.appendChild(e); }
+    tip.hidden = false;
+    const w = tip.offsetWidth, h = tip.offsetHeight;
+    tip.style.left = Math.max(8, Math.min(innerWidth - w - 8, x + 14)) + 'px';
+    tip.style.top = Math.max(8, Math.min(innerHeight - h - 8, y - h - 10)) + 'px';
+  }
+  const hideTip = () => { tip.hidden = true; };
+  const fillTable = (id, head, rows) => {
+    const t = $(id); t.replaceChildren();
+    for (const [i, r] of [head, ...rows].entries()) { const tr = t.insertRow(); r.forEach((v) => { const c = document.createElement(i ? 'td' : 'th'); c.textContent = v; tr.appendChild(c); }); }
+  };
+
+  // ---- line chart (Chart.js): model prediction as one input varies ----
+  const SWEEP = { bedrooms: [0, 1, 2, 3, 4, 5, 6], bathrooms: [0.5, 1, 1.5, 2, 3, 4, 5], accommodates: [1, 2, 3, 4, 5, 6, 8, 10, 12, 16], minimum_nights: [1, 2, 3, 5, 7, 14, 21, 30, 60, 90, 180, 365] };
+  const VARY = { bedrooms: 'bedrooms', bathrooms: 'bathrooms', accommodates: 'guests', minimum_nights: 'minimum nights' };
+  const rgba = (h, a) => `rgba(${hex(h).join(',')}, ${a})`;
+  function chart(s, key) {
+    const xs = [...new Set([...SWEEP[key], s[key]])].sort((a, b) => a - b), rg = rangeFor(s);   // your own value is always on the axis
+    const pts = xs.map((x) => { const p = price({ ...s, [key]: x }); return { x, p, lo: p * rg.lo, hi: p * rg.hi }; });
+    fillTable('chart-table', [VARY[key][0].toUpperCase() + VARY[key].slice(1), 'Predicted price', '80% range'], pts.map((d) => [String(d.x), baht(d.p), `${baht(d.lo)} to ${baht(d.hi)}`]));
+    if (typeof Chart === 'undefined') return;
+    const orange = css('--series-2'), grid = css('--hairline'), ink = css('--text-secondary'), inkStrong = css('--text-primary'), surface = css('--surface-1'), muted = css('--text-muted');
+    const at = xs.indexOf(s[key]), floor = Math.max(0, Math.floor((Math.min(...pts.map((d) => d.lo)) * 0.85) / 500) * 500);
+    const fade = (c) => { const a = c.chart.chartArea; if (!a) return rgba(orange, 0.18); const g = c.chart.ctx.createLinearGradient(0, a.top, 0, a.bottom); g.addColorStop(0, rgba(orange, 0.32)); g.addColorStop(1, rgba(orange, 0.07)); return g; };
+    const guide = { id: 'guide', afterDatasetsDraw(c) {
+      const { ctx, chartArea: a, scales: { x, y } } = c; ctx.save();
+      const act = c.tooltip && c.tooltip.getActiveElements ? c.tooltip.getActiveElements() : [];
+      if (act.length) { const px = x.getPixelForValue(act[0].index); ctx.strokeStyle = muted; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(px, a.top); ctx.lineTo(px, a.bottom); ctx.stroke(); }
+      const px = x.getPixelForValue(at), py = y.getPixelForValue(pts[at].p);   // your input: drop line and price pill
+      ctx.setLineDash([4, 4]); ctx.strokeStyle = orange; ctx.lineWidth = 1.25; ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px, a.bottom); ctx.stroke(); ctx.setLineDash([]);
+      ctx.font = '600 12px system-ui, -apple-system, "Segoe UI", sans-serif';
+      const txt = baht(pts[at].p), w = ctx.measureText(txt).width + 16, bx = Math.min(a.right - w, Math.max(a.left, px - w / 2)), by = py - 36;
+      ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx, by, w, 22, 11) : ctx.rect(bx, by, w, 22);
+      ctx.fillStyle = surface; ctx.fill(); ctx.strokeStyle = orange; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.fillStyle = inkStrong; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(txt, bx + w / 2, by + 11.5);
+      ctx.restore(); } };
+    Chart.defaults.font.family = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif'; Chart.defaults.font.size = 12; Chart.defaults.color = ink;
+    if (lineChart) lineChart.destroy();
+    const edge = { borderColor: rgba(orange, 0.55), borderWidth: 1, pointRadius: 0, pointHoverRadius: 0 };
+    lineChart = new Chart($('chart'), {
+      type: 'line',
+      data: { labels: xs.map(String), datasets: [
+        { label: '80% range', data: pts.map((d) => d.hi), fill: '+1', backgroundColor: fade, ...edge },
+        { label: 'range low', data: pts.map((d) => d.lo), fill: false, ...edge },
+        { label: 'Model prediction', data: pts.map((d) => d.p), borderColor: orange, backgroundColor: orange, borderWidth: 2.5, fill: false,
+          pointRadius: xs.map((x, i) => (i === at ? 7 : 4)), pointHoverRadius: 7, pointBackgroundColor: orange, pointBorderColor: surface, pointBorderWidth: 2 } ] },
+      options: {
+        animation: false, responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, layout: { padding: { top: 34, right: 10 } },
+        plugins: {
+          legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8, padding: 16, filter: (i) => i.datasetIndex !== 1,
+            generateLabels: (c) => Chart.defaults.plugins.legend.labels.generateLabels(c).map((l) => (l.datasetIndex === 0 ? { ...l, fillStyle: rgba(orange, 0.28), strokeStyle: orange, lineWidth: 1.5 } : l)) } },
+          tooltip: { filter: (i) => i.datasetIndex === 2, backgroundColor: surface, borderColor: grid, borderWidth: 1, titleColor: inkStrong, bodyColor: ink, padding: 10, displayColors: false,
+            callbacks: { title: (c) => `${xs[c[0].dataIndex]} ${VARY[key]}`, label: (c) => `Model prediction: ${baht(pts[c.dataIndex].p)}`, afterLabel: (c) => `80% range ${baht(pts[c.dataIndex].lo)} to ${baht(pts[c.dataIndex].hi)}` } } },
+        scales: {
+          x: { offset: true, title: { display: true, text: VARY[key] }, grid: { display: false }, border: { color: grid } },
+          y: { suggestedMin: floor, title: { display: true, text: 'Predicted price per night (THB)' }, ticks: { callback: (v) => short(v), maxTicksLimit: 6 }, grid: { color: grid }, border: { display: false } } } },
+      plugins: [guide] });
+  }
+
+  // ---- heatmap (SVG): real price distribution with the model prediction on the user's row ----
+  const hex = (h) => [1, 3, 5].map((i) => parseInt(h.trim().slice(i, i + 2), 16));
+  function heatColor(t) {   // one-hue ramp read from the theme tokens, so it follows light/dark
+    const stops = [0, 1, 2].map((i) => hex(css('--heat-' + i))), x = Math.min(1, Math.max(0, t)) * 2, i = Math.min(1, Math.floor(x)), f = x - i;
+    return `rgb(${stops[i].map((v, k) => Math.round(v + (stops[i + 1][k] - v) * f)).join(',')})`;
+  }
+  const MIN_SHOW = 30;  // heatmap cells with fewer listings are not drawn
+  const binOf = (key, v) => { const u = model.dist.dims[key].uppers, i = u.findIndex((e) => v <= e); return i < 0 ? u.length : i; };
+
+  function compare(s, p) {
+    const D = model.dist, key = $('rowdim').value, dim = D.dims[key], data = D.counts[key][s.room_type], E = D.edges, nb = E.length - 1, rows = dim.bins.length, rg = rangeFor(s);
+    const L = 70, R = 14, T = 22, ch = 36, plotW = 900 - L - R, cw = plotW / nb, H = T + rows * ch + 52;
+    const lo = Math.log(E[0]), span = Math.log(E[nb]) - lo, X = (v) => L + ((Math.log(Math.min(E[nb], Math.max(E[0], v))) - lo) / span) * plotW;
+    const shares = data.c.map((r, j) => r.map((c) => (data.n[j] ? c / data.n[j] : 0))), shown = (j, i) => data.c[j][i] >= MIN_SHOW;
+    const top = Math.sqrt(Math.max(...shares.flatMap((r, j) => r.filter((_, i) => shown(j, i))), 1e-9));
+    const mine = binOf(key, s[key]), yRow = (j) => T + (rows - 1 - j) * ch, room = $('room').selectedOptions[0].text;
+    let g = `<text x="2" y="${T - 8}">${dim.label.toLowerCase()}</text>`;
+    for (let j = 0; j < rows; j++) {
+      for (let i = 0; i < nb; i++) {
+        const c = data.c[j][i]; if (!shown(j, i)) continue;
+        const tv = `${c.toLocaleString('en-US')} listings`, tl = `${baht(E[i])} to ${baht(E[i + 1])}`, ts = `${(100 * shares[j][i]).toFixed(1)}% of ${room} with ${dim.label.toLowerCase()} ${dim.bins[j]}`;
+        g += `<rect class="cell" x="${L + i * cw + 1}" y="${yRow(j) + 1}" width="${cw - 2}" height="${ch - 2}" rx="3" fill="${heatColor(Math.sqrt(shares[j][i]) / top)}" data-tv="${tv}" data-tl="${tl}" data-ts="${ts}"/>`;
+      }
+      g += `<text ${j === mine ? 'class="strong"' : ''} x="${L - 10}" y="${yRow(j) + ch / 2 + 4}" text-anchor="end">${dim.bins[j]}</text>`;
+    }
+    [500, 1000, 2000, 5000, 10000].forEach((v) => { g += `<line x1="${X(v)}" x2="${X(v)}" y1="${T + rows * ch}" y2="${T + rows * ch + 5}" stroke="var(--text-muted)"/><text x="${X(v)}" y="${T + rows * ch + 19}" text-anchor="middle">${short(v)}</text>`; });
+    g += `<text x="${L + plotW / 2}" y="${H - 8}" text-anchor="middle">Price per night (THB, log scale)</text>`;
+    // your row and the model: outline, 80% range bar, prediction dot (surface rings keep them legible on any cell colour)
+    const cy = yRow(mine) + ch / 2, x0 = X(p * rg.lo), w = X(p * rg.hi) - x0, mt = `data-tv="${baht(p)}" data-tl="Model prediction" data-ts="80% range ${baht(p * rg.lo)} to ${baht(p * rg.hi)}"`;
+    g += `<rect x="${L - 2}" y="${yRow(mine) - 1}" width="${plotW + 4}" height="${ch + 2}" rx="6" fill="none" stroke="var(--text-primary)" stroke-width="1.5" pointer-events="none"/>`;
+    g += `<rect x="${x0}" y="${cy - 8}" width="${w}" height="16" rx="8" fill="none" stroke="var(--surface-1)" stroke-width="5" pointer-events="none"/><rect x="${x0}" y="${cy - 8}" width="${w}" height="16" rx="8" fill="none" stroke="var(--series-2)" stroke-width="2.5" ${mt}/>`;
+    g += `<circle cx="${X(p)}" cy="${cy}" r="7" fill="var(--series-2)" stroke="var(--surface-1)" stroke-width="2" ${mt}/>`;
+    const svg = $('compare'); svg.setAttribute('viewBox', `0 0 900 ${H}`); svg.innerHTML = g;
+    svg.onpointermove = (e) => { const t = e.target.closest && e.target.closest('[data-tv]'); if (t) showTip(e.clientX, e.clientY, { tv: t.dataset.tv, tl: t.dataset.tl, ts: t.dataset.ts }); else hideTip(); };
+    svg.onpointerleave = hideTip;
+    const n = data.n[mine], mid = (i) => Math.sqrt(E[i] * E[i + 1]);
+    $('compare-sub').textContent = `${room} listings by ${dim.label.toLowerCase()} and price. Brighter cells hold more of that row's listings; cells with fewer than ${MIN_SHOW} listings are not shown.`;
+    $('compare-note').textContent = `Your row (${dim.label.toLowerCase()} ${dim.bins[mine]}) holds ${n.toLocaleString('en-US')} real listings. The model also uses the other inputs, which this chart ignores.`;
+    fillTable('compare-table', [dim.label, 'Listings', 'Priced inside the model range (about)'], dim.bins.map((b, j) => {
+      const inside = data.c[j].reduce((a, c, i) => a + (mid(i) >= p * rg.lo && mid(i) <= p * rg.hi ? c : 0), 0);
+      return [b, data.n[j].toLocaleString('en-US'), data.n[j] ? Math.round((100 * inside) / data.n[j]) + '%' : '-'];
+    }));
+  }
+
+  function render() {
+    if (!model) return;
+    hideTip();
+    const s = read(), p = price(s), rg = rangeFor(s);
+    $('price').textContent = baht(p);
+    $('range').textContent = `${baht(p * rg.lo)} to ${baht(p * rg.hi)}`;
+    $('nreal').textContent = model.dist.counts.bedrooms[s.room_type].n[binOf('bedrooms', s.bedrooms)].toLocaleString('en-US');
+    chart(s, $('vary').value);
+    compare(s, p);
+  }
+
+  fetch('model.json').then((r) => r.json()).then((m) => {
+    model = m;
+    $('hood').innerHTML = '<option value="">Not specified</option>' + Object.entries(m.hoods).sort().map(([n, c]) => `<option value="${c}">${n}</option>`).join('');
+    $('room').innerHTML = Object.entries(m.rooms).sort((a, b) => (a[0] === 'Entire home/apt' ? -1 : b[0] === 'Entire home/apt' ? 1 : 0)).map(([n, c]) => `<option value="${c}">${n}</option>`).join('');
+    $('rowdim').innerHTML = Object.entries(m.dist.dims).map(([key, d]) => `<option value="${key}">${d.label}</option>`).join('');
+    const k = m.meta, pct = (v) => (100 * v).toFixed(1) + '%';
+    $('m-trees').textContent = k.n_trees; $('m-leaves').textContent = k.n_leaves; $('m-ntest').textContent = k.n_test.toLocaleString('en-US');
+    $('m-mae').textContent = Math.round(k.test_mae) + ' THB'; $('m-mae-nh').textContent = Math.round(k.test_mae_no_hood) + ' THB'; $('m-w20').textContent = pct(k.test_within20); $('m-cov').textContent = pct(k.range_coverage_test);
+    fetch('model.json').then((r) => r.blob()).then((b) => {
+      const kb = (b.size / 1024).toFixed(0) + ' KB'; $('m-size').textContent = kb;
+      $('status').dataset.state = 'ready'; $('status').innerHTML = `<span class="icon">✓</span><span><b>Model loaded.</b> ${k.n_trees} trees, ${kb}, running in your browser.</span>`;
+    });
+    ['bedrooms', 'bathrooms', 'accommodates', 'room', 'minimum_nights', 'hood', 'pool', 'vary', 'rowdim'].forEach((id) => $(id).addEventListener('input', render));
+    render();
+  }).catch(() => { $('status').dataset.state = 'error'; $('status').innerHTML = '<span class="icon">!</span><span><b>The model failed to load.</b> If you opened the file directly, serve the folder with a local web server.</span>'; });
+})();
+</script>
+</body>
+</html>
