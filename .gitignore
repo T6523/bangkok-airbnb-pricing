@@ -228,3 +228,5 @@ data/processed/
 *.duckdb
 *.csv
 *.json
+*.tsv
+*.tfevents

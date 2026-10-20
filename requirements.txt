@@ -10,3 +10,5 @@ matplotlib==3.11.2
 pytest==9.1.1
 PyYAML==6.0.3
 ruff==0.17.1
+xgboost==3.4.1
+catboost==1.2.10
