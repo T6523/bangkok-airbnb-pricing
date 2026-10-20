@@ -230,3 +230,5 @@ data/processed/
 *.json
 *.tsv
 *.tfevents
+
+*.db
